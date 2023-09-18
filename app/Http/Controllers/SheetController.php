@@ -16,6 +16,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
+use App\Jobs\ProcessExcelFile;
+
 
 class SheetController extends Controller
 {
@@ -43,7 +45,7 @@ class SheetController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'sheet' => 'required|mimes:xlsx,xls|max:2048',
+            'sheet' => 'required|mimes:xlsx,xls|max:102400',
         ], [
             'sheet.required' => 'What are you doing? You have to select a file.',
             'sheet.mimes' => 'The file must be a file of type: xlsx.',
@@ -62,37 +64,8 @@ class SheetController extends Controller
             $file->storeAs($storagePath, $fileName, 'local');
 
             if (file_exists(storage_path('app/' . $storagePath . $fileName))) {
-                $spreadsheet = IOFactory::load(storage_path('app/' . $storagePath . $fileName));
 
-                $sheetNames = $spreadsheet->getSheetNames();
-
-                foreach ($sheetNames as $sheetName) {
-                    $worksheet = $spreadsheet->getSheetByName($sheetName);
-                    $data = $worksheet->toArray();
-
-                    if (!Schema::hasTable($sheetName)) {
-                        Schema::create($sheetName, function (Blueprint $table) use ($data) {
-                            $table->string('sheet_id');
-                            foreach ($data[0] as $header) {
-                                $table->string($header);
-                            }
-                        });
-                    }
-
-                    $tableData = [];
-                    foreach (array_chunk(array_slice($data, 1), 1000) as $chunk) {
-                        foreach ($chunk as $row) {
-                            $rowData = ['sheet_id' => $sheet->id];
-                            foreach ($data[0] as $index => $header) {
-                                $rowData[$header] = $row[$index];
-                            }
-                            $tableData[] = $rowData;
-                        }
-                        DB::table($sheetName)->insert($tableData);
-                        $tableData = [];
-                    }
-                }
-
+                ProcessExcelFile::dispatch($sheet, $fileName);
 
                 Session::put('sheetFileName', $fileName);
                 return redirect()->back()->with('success', 'Data from the spreadsheet stored successfully.');
