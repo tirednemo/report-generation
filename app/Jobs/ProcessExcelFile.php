@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,60 +26,36 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ProcessExcelFile implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, Batchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $sheet;
-    protected $fileName;
+    protected $data;
     protected $sheetName;
+    protected $sheet;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Sheet $sheet, $fileName)
+    public function __construct($data, $sheetName, Sheet $sheet)
     {
+        $this->data = $data;
+        $this->sheetName = $sheetName;
         $this->sheet = $sheet;
-        $this->fileName = $fileName;
     }
 
     /**
      * Execute the job.
      */
     public function handle()
-    {       
-        $spreadsheet = IOFactory::load(storage_path('app/sheets/' .$this->fileName));
-
-        $sheetNames = $spreadsheet->getSheetNames();
-
-        foreach ($sheetNames as $sheetName) {
-            $worksheet = $spreadsheet->getSheetByName($sheetName);
-            $data = $worksheet->toArray();
-
-            if (!Schema::hasTable($sheetName)) {
-                Schema::create($sheetName, function (Blueprint $table) use ($data) {
-                    $table->string('sheet_id');
-                    foreach ($data[0] as $header) {
-                        $table->string($header);
-                    }
-                });
+    {
+        $tableData = [];
+        foreach ($this->data as $row) {
+            $rowData = ['sheet_id' => $this->sheet->id];
+            foreach ($this->data[0] as $index => $header) {
+                $rowData[$header] = $row[$index];
             }
-
-            $chunkSize = 1000;
-            $totalRows = count($data) - 1; 
-        
-            for ($offset = 1; $offset <= $totalRows; $offset += $chunkSize) {
-                $chunk = array_slice($data, $offset, $chunkSize);
-        
-                $tableData = [];
-                foreach ($chunk as $row) {
-                    $rowData = ['sheet_id' => $this->sheet->id];
-                    foreach ($data[0] as $index => $header) {
-                        $rowData[$header] = $row[$index];
-                    }
-                    $tableData[] = $rowData;
-                }
-        
-                DB::table($sheetName)->insert($tableData);
-            }
+            $tableData[] = $rowData;
         }
+        
+        DB::table($this->sheetName)->insert($tableData);
     }
 }

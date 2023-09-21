@@ -11,6 +11,7 @@ use Illuminate\View\View;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Bus;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -65,7 +66,30 @@ class SheetController extends Controller
 
             if (file_exists(storage_path('app/' . $storagePath . $fileName))) {
 
-                ProcessExcelFile::dispatch($sheet, $fileName);
+                $spreadsheet = IOFactory::load(storage_path('app/sheets/' . $fileName));
+
+                $sheetNames = $spreadsheet->getSheetNames();
+
+                foreach ($sheetNames as $sheetName) {
+                    $worksheet = $spreadsheet->getSheetByName($sheetName);
+                    $data = $worksheet->toArray();
+
+                    if (!Schema::hasTable($sheetName)) {
+                        Schema::create($sheetName, function (Blueprint $table) use ($data) {
+                            $table->string('sheet_id');
+                            foreach ($data[0] as $header) {
+                                $table->string($header);
+                            }
+                        });
+                    }
+
+                    $batch  = Bus::batch([])->dispatch();
+                    $chunks = array_chunk($data, 1000);
+
+                    foreach ($chunks as $chunk) {
+                        $batch->add(new ProcessExcelFile($chunk, $sheetName, $sheet));
+                    }
+                }
 
                 Session::put('sheetFileName', $fileName);
                 return redirect()->back()->with('success', 'Data from the spreadsheet stored successfully.');
@@ -146,5 +170,28 @@ class SheetController extends Controller
     public function destroy(Sheet $sheet)
     {
         //
+    }
+
+    public function batch()
+    {
+        $batchId = request('id');
+        return Bus::findBatch($batchId);
+    }
+
+    public function batchInProgress()
+    {
+        $batches = DB::table('job_batches')->where('pending_jobs', '>', 0)->get();
+        if (count($batches) > 0) {
+            $batch = Bus::findBatch($batches[0]->id);
+            return response()->json([
+                'completedJobs' => $batch->progress()['completed'],
+                'totalJobs' => $batch->progress()['total'],
+            ]);
+        }
+
+        return response()->json([
+            'completedJobs' => 0,
+            'totalJobs' => 0,
+        ]);
     }
 }

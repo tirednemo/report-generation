@@ -78,6 +78,13 @@
                     </div>
                 </form>
             </div>
+
+            <div class="flex justify-between mt-4 mb-1">
+                <span class="text-base font-medium text-black-700">Processing</span>
+            </div>
+            <div id="progress-bar" class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-300">
+                <div id="progress-bar-fill" class="bg-slate-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
         </div>
     </div>
 
