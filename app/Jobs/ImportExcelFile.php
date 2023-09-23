@@ -36,7 +36,7 @@ class ImportExcelFile implements ShouldQueue
         $path = storage_path('app/' . $this->storagePath . $this->fileName);
         if (file_exists($path)) {
             Excel::import(new SheetsImport, $path);
-            echo "Import finished.";
+            echo "Importing {$this->fileName}";
         }
     }
 

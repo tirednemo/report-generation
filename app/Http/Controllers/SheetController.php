@@ -1,27 +1,10 @@
 <?php
 
 namespace App\Http\Controllers;
-
-use App\Models\Sheet;
 use Illuminate\Http\Request;
-
-use Illuminate\Support\Facades\Session;
 use Illuminate\View\View;
-
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Bus;
-
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-
-use App\Jobs\LoadExcelFile;
 use App\Jobs\ImportExcelFile;
-use App\Jobs\ExportExcelFile;
 use App\Exports\SheetsExport;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\Controller;
 
 
@@ -32,8 +15,7 @@ class SheetController extends Controller
      */
     public function index()
     {
-        $fileName = 'report.xlsx';
-        return (new SheetsExport)->download($fileName);
+        //
     }
 
     /**

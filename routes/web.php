@@ -14,7 +14,7 @@ use App\Http\Controllers\SheetController;
 */
 
 Route::get('/', function () {
-    return redirect()->route('sheets.index');
+    return redirect()->route('sheets.create');
 })->name('dashboard');
 
 

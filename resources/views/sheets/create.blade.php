@@ -78,7 +78,7 @@
                     </div>
                 </form>
                 <div class="mt-4 flex justify-end">
-                    <a href="{{ route('sheets.index') }}">
+                    <a href="{{ route('sheets.export') }}">
                         <x-primary-button class="py-2 px-4">{{ __('Download') }}
                         </x-primary-button>
                     </a>
