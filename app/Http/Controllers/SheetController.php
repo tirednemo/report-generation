@@ -17,7 +17,12 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-use App\Jobs\ProcessExcelFile;
+use App\Jobs\LoadExcelFile;
+use App\Jobs\ImportExcelFile;
+use App\Jobs\ExportExcelFile;
+use App\Exports\SheetsExport;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Http\Controllers\Controller;
 
 
 class SheetController extends Controller
@@ -25,11 +30,10 @@ class SheetController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): View
+    public function index()
     {
-        return view('sheets.index', [
-            'sheets' => Sheet::latest()->get(),
-        ]);
+        $fileName = 'report.xlsx';
+        return (new SheetsExport)->download($fileName);
     }
 
     /**
@@ -45,8 +49,46 @@ class SheetController extends Controller
      */
     public function store(Request $request)
     {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show()
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit()
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy()
+    {
+        //
+    }
+
+
+    public function import(Request $request)
+    {
         $request->validate([
-            'sheet' => 'required|mimes:xlsx,xls|max:102400',
+            'sheet' => 'required|mimes:xlsx,xls|max:204800',
         ], [
             'sheet.required' => 'What are you doing? You have to select a file.',
             'sheet.mimes' => 'The file must be a file of type: xlsx.',
@@ -55,143 +97,21 @@ class SheetController extends Controller
 
         if ($request->file('sheet')->isValid()) {
             $file = $request->file('sheet');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-
-            $sheet = new Sheet;
-            $sheet->file_name = $fileName;
-            $sheet->save();
+            $fileName = $file->getClientOriginalName();
 
             $storagePath = 'sheets/';
             $file->storeAs($storagePath, $fileName, 'local');
 
-            if (file_exists(storage_path('app/' . $storagePath . $fileName))) {
-
-                $spreadsheet = IOFactory::load(storage_path('app/sheets/' . $fileName));
-
-                $sheetNames = $spreadsheet->getSheetNames();
-
-                foreach ($sheetNames as $sheetName) {
-                    $worksheet = $spreadsheet->getSheetByName($sheetName);
-                    $data = $worksheet->toArray();
-
-                    if (!Schema::hasTable($sheetName)) {
-                        Schema::create($sheetName, function (Blueprint $table) use ($data) {
-                            $table->string('sheet_id');
-                            foreach ($data[0] as $header) {
-                                $table->string($header);
-                            }
-                        });
-                    }
-
-                    $batch  = Bus::batch([])->dispatch();
-                    $chunks = array_chunk($data, 1000);
-
-                    foreach ($chunks as $chunk) {
-                        $batch->add(new ProcessExcelFile($chunk, $sheetName, $sheet));
-                    }
-                }
-
-                Session::put('sheetFileName', $fileName);
-                return redirect()->back()->with('success', 'Data from the spreadsheet stored successfully.');
-            }
+            ImportExcelFile::dispatch($storagePath, $fileName);
+            return redirect()->back()->with('success', 'Spreadsheet is being uploaded.');
         }
-
         return redirect()->back()->with('error', 'Failed to upload.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Sheet $sheet)
+
+    public function export()
     {
-        $tableNames = DB::select('SHOW TABLES');
-        $tableNames = array_map('current', $tableNames);
-
-        $spreadsheet = new Spreadsheet();
-        $spreadsheet->removeSheetByIndex(0);
-
-        foreach ($tableNames as $tableName) {
-            if ($tableName != 'migrations' && $tableName != 'personal_access_tokens' && $tableName != 'sheets') {
-                $hasEntries = DB::table($tableName)->where('sheet_id', $sheet->id)->exists();
-
-                if ($hasEntries) {
-                    $worksheet = $spreadsheet->createSheet();
-                    $worksheet->setTitle($tableName);
-
-                    $tableData = DB::table($tableName)->where('sheet_id', $sheet->id)->get()->toArray();
-
-                    if (!empty($tableData)) {
-                        $headers = array_keys((array) $tableData[0]);
-                        $worksheet->fromArray([$headers], null, 'A1');
-                        $data = [];
-                        foreach ($tableData as $row) {
-                            $data[] = (array) $row;
-                        }
-                        $worksheet->fromArray($data, null, 'A2');
-                    }
-                }
-            }
-        }
-
-        $response = response()->stream(
-            function () use ($spreadsheet) {
-                $writer = new Xlsx($spreadsheet);
-                $writer->save('php://output');
-            },
-            200,
-            [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="exported_data.xlsx"',
-            ]
-        );
-
-        return $response;
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Sheet $sheet)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Sheet $sheet)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Sheet $sheet)
-    {
-        //
-    }
-
-    public function batch()
-    {
-        $batchId = request('id');
-        return Bus::findBatch($batchId);
-    }
-
-    public function batchInProgress()
-    {
-        $batches = DB::table('job_batches')->where('pending_jobs', '>', 0)->get();
-        if (count($batches) > 0) {
-            $batch = Bus::findBatch($batches[0]->id);
-            return response()->json([
-                'completedJobs' => $batch->progress()['completed'],
-                'totalJobs' => $batch->progress()['total'],
-            ]);
-        }
-
-        return response()->json([
-            'completedJobs' => 0,
-            'totalJobs' => 0,
-        ]);
+        $fileName = 'report.xlsx';
+        return (new SheetsExport)->download($fileName);
     }
 }

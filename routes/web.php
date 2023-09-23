@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\SessionController;
 use App\Http\Controllers\SheetController;
 /*
 |--------------------------------------------------------------------------
@@ -22,5 +21,5 @@ Route::get('/', function () {
 Route::resource('sheets', SheetController::class)
     ->only(['index', 'create', 'store', 'show', 'update']);
 
-Route::post('/store-data-in-session', [SessionController::class, 'storeDataInSession']);
-Route::delete('/delete-data-from-session', [SessionController::class, 'deleteSessionData']);
+Route::post('/sheets/import', [SheetController::class, 'import'])->name('sheets.import');
+Route::get('/sheets/export', [SheetController::class, 'export'])->name('sheets.export');

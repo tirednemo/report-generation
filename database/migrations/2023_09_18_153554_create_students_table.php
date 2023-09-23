@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sheets', function (Blueprint $table) {
-            $table->id();
-            $table->string('file_name');
-            $table->timestamps();
+        Schema::create('students', function (Blueprint $table) {
+            $table->string('id');
+            $table->string('name');
+            $table->string('major');
         });
     }
 

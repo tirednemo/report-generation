@@ -60,7 +60,7 @@
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-5">
-                <form method="POST" action="{{ route('sheets.store') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('sheets.import') }}" enctype="multipart/form-data">
                     @csrf
                     <div class="flex flex-col">
                         <div class="relative">
@@ -77,13 +77,12 @@
                         </div>
                     </div>
                 </form>
-            </div>
-
-            <div class="flex justify-between mt-4 mb-1">
-                <span class="text-base font-medium text-black-700">Processing</span>
-            </div>
-            <div id="progress-bar" class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-300">
-                <div id="progress-bar-fill" class="bg-slate-500 h-2.5 rounded-full" style="width: 0%"></div>
+                <div class="mt-4 flex justify-end">
+                    <a href="{{ route('sheets.index') }}">
+                        <x-primary-button class="py-2 px-4">{{ __('Download') }}
+                        </x-primary-button>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
